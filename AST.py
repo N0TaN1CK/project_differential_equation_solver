@@ -190,13 +190,19 @@ def simplify(head:Node):
     for h in head.children:
         if h is BinaryOperation:
             if h.op == '*' or h.op == '/':
-
+                if h.children[0] == ValueNode(1):
+                    h = Node(h.children[1].op,h.children[1].children)
+                if h.children[1] == ValueNode(1):
+                    h = Node(h.children[0].op,h.children[0].children)
             if h.op == '+' or h.op == '+':
-
-        if h.children is not None:
+                if h.children[1] == ValueNode(0):
+                    h = Node(h.children[0].op,h.children[0].children)
+                if h.children[0] == ValueNode(0):
+                    h = Node(h.children[1].op,h.children[1].children)
+        if h.children is not []:
             for k in h.children:
                 simplify(k)
-
+    return Node(head.op,head.children)
 
 # class Operation
 
@@ -230,5 +236,7 @@ headeq = move(headeq.right_child, headeq,'<',0)
 print(headeq)
 headeq = move(mult1, headeq, '>', 0)
 print(headeq)
+headeq = simplify(headeq)
+print(simplify(headeq))
 print(headeq.Seekdiff())
 
