@@ -12,6 +12,20 @@ class Node:
             new_children.append(child.assign(var_name, value))
         return Node(self.op, new_children)
 
+    def diff(self):
+        return Node('d',[self])
+
+    def Seekdiff(self):
+        pnode = self
+        if pnode.op == 'd':
+            return pnode
+        else:
+            for N in self.children:
+                N.Seekdiff()
+    def integrate(self):
+        for Ch in self.children:
+            Ch = IntNode(Ch.Seekdiff().children[0],Ch)
+            return self
 
 class ValueNode(Node):
     def __init__(self, value: int | float):
@@ -62,7 +76,7 @@ class BinaryOperation(Node):
         )
 
 
-#class IntegrationNode(Node):
+# class IntegrationNode(Node):
 #    def __int__(self, int_act, int_var: Node, child: Node):
 #        super().__init__(int_act, [int_var, child])
 #        self.var = int_var
@@ -78,9 +92,29 @@ class BinaryOperation(Node):
 #                               self.child
 #                               )
 
-class IntegrationNode(Node):
-    def __init__(self, op: ..., var_child: Node, right_child: Node):
-        super().__init__(op, [var_child, right_child])
+
+class EqNode(Node):
+    def __init__(self, left_child: Node, right_child: Node):
+        super().__init__('=', [left_child, right_child])
+
+    @property
+    def left_child(self):
+        return self.children[0]
+
+    @property
+    def right_child(self):
+        return self.children[1]
+
+    def mirror(self):
+        return EqNode(
+            self.right_child,
+            self.left_child
+        )
+
+
+class IntNode(Node):
+    def __init__(self, var_child: Node, right_child: Node):
+        super().__init__('intOp', [var_child, right_child])
 
     @property
     def var_child(self):
@@ -91,18 +125,18 @@ class IntegrationNode(Node):
         return self.children[1]
 
     def __repr__(self):
-        return f'int<<d({self.children[0]})({self.children[1]})'
+        return f'to int ({self.right_child}) by ({self.var_child})'
 
     def assign(self, var_name: str, value: int | float):
-        return IntegrationNode(
-            self.op,
+        return IntNode(
             self.var_child,
             self.right_child.assign(var_name, value)
         )
+
 
 class DiffNode(Node):
-    def __init__(self, op: ..., var_child: Node, right_child: Node):
-        super().__init__(op, [var_child, right_child])
+    def __init__(self, var_child: Node, right_child: Node):
+        super().__init__('diffOp', [var_child, right_child])
 
     @property
     def var_child(self):
@@ -113,28 +147,96 @@ class DiffNode(Node):
         return self.children[1]
 
     def __repr__(self):
-        return f'diff<<d({self.children[0]})({self.children[1]})'
+        return f'to diff d({self.right_child}) by ({self.var_child})'
 
     def assign(self, var_name: str, value: int | float):
-        return IntegrationNode(
-            self.op,
+        return DiffNode(
             self.var_child,
             self.right_child.assign(var_name, value)
         )
 
-class NonbiOperation(Node)
-    ...
-class equationNode(Node)
-    ...
-     def DoubleAction(left_node: Node, Right_node: Node):
-        ...
-def SimplifyNode # добавить в корень Node
-    ...
-def replaceNode # добавить в корень Node
-    ...
+    def split(self):
+        return BinaryOperation('/',
+                               self.right_child.diff(),
+                               self.var_child.diff()
+                               )
 
-node = Node('max', [ValueNode(1), VariableNode('x'), VariableNode('y')])
-inode = IntegrationNode('intr1',VariableNode('x'),node)
-binop_node = BinaryOperation('+', inode, ValueNode(2))
-print(binop_node)
-print(binop_node.assign('y', 100))
+
+def reverse(operation:str):
+    if operation == '+':
+        return '-'
+    if operation == '-':
+        return '+'
+    if operation == '*':
+        return '/'
+    if operation == '/':
+        return '*'
+
+
+def move(BO: BinaryOperation, eq: EqNode, side: str, cNo: int):
+    movenode = BO.children[cNo]
+    if BO.op == '+' or BO.op == '-':
+        BO.children[cNo] = ValueNode(0)
+    elif BO.op == '*' or BO.op == '/':
+        BO.children[cNo] = ValueNode(1)
+    if side == '>':
+        eq = EqNode(eq.left_child,BinaryOperation(reverse(BO.op),eq.right_child,movenode))
+    else:
+        eq = EqNode(BinaryOperation(reverse(BO.op), eq.left_child, movenode),eq.right_child)
+    return eq
+
+
+def simplify(head:Node):
+    for h in head.children:
+        if h is BinaryOperation:
+            if h.op == '*' or h.op == '/':
+                if h.children[0] == ValueNode(1):
+                    h = Node(h.children[1].op,h.children[1].children)
+                if h.children[1] == ValueNode(1):
+                    h = Node(h.children[0].op,h.children[0].children)
+            if h.op == '+' or h.op == '+':
+                if h.children[1] == ValueNode(0):
+                    h = Node(h.children[0].op,h.children[0].children)
+                if h.children[0] == ValueNode(0):
+                    h = Node(h.children[1].op,h.children[1].children)
+        if h.children is not []:
+            for k in h.children:
+                simplify(k)
+    return Node(head.op,head.children)
+
+# class Operation
+
+# class NonbiOperation(Node)
+
+# class equationNode(Node)
+
+# def DoubleAction(left_node: Node, Right_node: Node):
+
+# def SimplifyNode # добавить в корень Node
+
+# def replaceNode # добавить в корень Node
+
+
+diff1 = DiffNode(VariableNode('x'),VariableNode('y'))
+#print(diff1)
+mult1 = BinaryOperation('*',VariableNode('x'),diff1)
+#print(mult1)
+headeq = EqNode(mult1,VariableNode('y'))
+#print(headeq)
+
+diff1 = diff1.split()
+mult1 = BinaryOperation('*',VariableNode('x'),diff1)
+headeq = EqNode(mult1,VariableNode('y'))
+#print(diff1)
+print(headeq)
+
+headeq = move(diff1,headeq,'>',1)
+print(headeq)
+headeq = move(headeq.right_child, headeq,'<',0)
+print(headeq)
+headeq = move(mult1, headeq, '>', 0)
+print(headeq)
+headeq = simplify(headeq)
+print(simplify(headeq))
+print(headeq.Seekdiff())
+
